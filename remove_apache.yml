@@ -1,0 +1,15 @@
+---
+
+- hosts: all
+  become: true
+  tasks:
+
+  - name: removing apache (httpd)
+    ansible.builtin.dnf:
+      name: httpd
+      state: absent 
+
+  - name: removing php
+    ansible.builtin.dnf:
+      name: php
+      state: absent
