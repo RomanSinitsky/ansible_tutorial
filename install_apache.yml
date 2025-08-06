@@ -4,21 +4,25 @@
   become: true
   tasks:
 
-  - name: update repository and install apache2 and php packages  
-    package:
+  - name: update repository index  
+    ansible.builtin.dnf:
       update_cache: yes
-      name:
-        - "{{ apache_package }}"
-        - "{{ php_package }}"
-      state: latest
+    when: ansible_facts['distribution'] == "RedHat"
       
+  - name: install apache2 package (httpd)
+    ansible.builtin.dnf:
+      name: httpd
+      state: latest 
+    when: ansible_facts['distribution'] == "RedHat"
+
   - name: Enable and start Apache service
     ansible.builtin.service:
-      name: "{{ apache_package }}"
+      name: httpd
       enabled: yes
       state: started
+    when: ansible_facts['distribution'] == "RedHat"
 
-  - name: Open HTTP service in firewalld RedHat
+  - name: Open HTTP service in firewalld
     ansible.posix.firewalld:
       service: http
       permanent: true
@@ -26,15 +30,56 @@
       immediate: yes
     when: ansible_facts['distribution'] == "RedHat"
 
-  - name: Open HTTP service in ufw Ubuntu
+  - name: installing php support for apache
+    ansible.builtin.dnf:
+      name: php
+      state: latest
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: restart httpd
+    ansible.builtin.systemd:
+      name: httpd
+      state: restarted
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: update repository index  
+    apt:
+      update_cache: yes
+    when: ansible_facts['distribution'] == "Ubuntu"
+      
+  - name: install apache2 package (httpd)
+    apt:
+      name: apache2
+      state: latest 
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: Enable and start Apache service
+    ansible.builtin.service:
+      name: apache2
+      enabled: yes
+      state: started
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: Open HTTP service in ufw
     community.general.ufw:
       rule: allow
       name: "Apache Full"
     when: ansible_facts['distribution'] == "Ubuntu"
 
-  - name: Ensure UFW is enabled Ubuntu
+  - name: Ensure UFW is enabled
     community.general.ufw:
       state: enabled
     when: ansible_facts['distribution'] == "Ubuntu"
 
- 
+  - name: installing php support for apache
+    apt:
+      name: libapache2-mod-php
+      state: latest
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: restart httpd
+    ansible.builtin.systemd:
+      name: apache2
+      state: restarted
+    when: ansible_facts['distribution'] == "Ubuntu"
+

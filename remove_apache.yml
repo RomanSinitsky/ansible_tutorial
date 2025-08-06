@@ -4,9 +4,27 @@
   become: true
   tasks:
 
-  - name: removing apache (httpd) and php packages
-    package:
-      name:
-        - "{{ apache_package }}"
-        - "{{ php_package }}"
+  - name: removing apache (httpd)
+    ansible.builtin.dnf:
+      name: httpd
       state: absent 
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: removing php
+    ansible.builtin.dnf:
+      name: php
+      state: absent
+    when: ansible_facts['distribution'] == "RedHat"
+   
+  - name: removing apache (httpd)
+    apt:
+      name: apache2
+      state: absent 
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: removing php
+    apt:
+      name: libapache2-mod-php
+      state: absent
+    when: ansible_facts['distribution'] == "Ubuntu"
+ 
