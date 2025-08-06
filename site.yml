@@ -1,0 +1,144 @@
+---
+
+- hosts: all
+  become: true
+  pre_tasks:
+
+  - name: install updates (RedHat)
+    tags: always
+    dnf:
+      update_only: yes
+      update_cache: yes
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: install updates (Ubuntu)
+    tags: always
+    apt:
+      upgrade: dist
+      update_cache: yes
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+      
+- hosts: webservers
+  become: true
+  tasks:
+
+  - name: install apache and php packages
+    tags: apache,httpd,ubuntu  
+    apt:
+      name:
+        - apache2
+        - libapache2-mod-php
+      state: latest
+    when: ansible_facts['distribution'] == "Ubuntu"
+      
+  - name: Ensure UFW is enabled
+    tags: apache,httpd,ubuntu  
+    community.general.ufw:
+      state: enabled
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: Open HTTP service in ufw
+    tags: apache,httpd,ubuntu  
+    community.general.ufw:
+      rule: allow
+      name: "Apache Full"
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: Enable and start Apache service
+    tags: apache,httpd,ubuntu  
+    ansible.builtin.service:
+      name: apache2
+      enabled: yes
+      state: started
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: install apache and php packages
+    tags: apache,httpd,redhat  
+    ansible.builtin.dnf:
+      name:
+        - httpd
+        - php
+      state: latest
+    when: ansible_facts['distribution'] == "RedHat"
+      
+  - name: Enable and start Apache service
+    tags: apache,httpd,redhat  
+    ansible.builtin.service:
+      name: httpd
+      enabled: yes
+      state: started
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: Open HTTP service in firewalld
+    tags: apache,httpd,redhat  
+    ansible.posix.firewalld:
+      service: http
+      permanent: true
+      state: enabled
+      immediate: yes
+    when: ansible_facts['distribution'] == "RedHat"
+
+- hosts: dbservers
+  become: true
+  tasks:
+
+  - name: install mariadb package (RedHat)
+    tags: db,mariadb,redhat
+    ansible.builtin.dnf:
+      name:
+        - mariadb
+        - mariadb-server
+      state: latest
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: install mariadb package (Ubuntu)
+    tags: db,mariadb,ubuntu
+    apt:
+      name: mariadb
+      state: latest
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: Enable and start MariaDB
+    tags: db,mariadb
+    ansible.builtin.service:
+      name: mariadb
+      state: started   # ensures it's running
+      enabled: yes     # ensures it starts at boot
+
+
+- hosts: fileservers
+  become: yes
+  tasks:
+
+    - name: install samba package
+      tags: samba,redhat,ubuntu
+      package: 
+        name: 
+          - samba
+          - samba-client
+        state: latest
+
+    - name: Enable and start Samba services for RedHat
+      tags: samba,redhat
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - smb
+        - nmb
+      when: ansible_facts['distribution'] == "RedHat"
+ 
+    - name: Enable and start Samba services for Ubuntu
+      tags: samba,ubuntu
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - smbd
+        - nmbd
+      when: ansible_facts['distribution'] == "Ubuntu"
+ 
+
