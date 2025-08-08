@@ -7,3 +7,6 @@ redhat.vm
 [fileservers]
 redhat2.vm
 
+[workstations]
+localhost ansible_connection=local
+
