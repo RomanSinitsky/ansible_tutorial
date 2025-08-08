@@ -1,0 +1,41 @@
+---
+
+- hosts: all
+  become: true
+  pre_tasks:
+
+  - name: install updates (RedHat)
+    tags: always
+    dnf:
+      update_only: yes
+      update_cache: yes
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: install updates (Ubuntu)
+    tags: always
+    apt:
+      upgrade: dist
+      update_cache: yes
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: create user simone
+    tags: always
+    user:
+      name: simone
+      groups: root
+  
+  - name: add ssh-key for user simone
+    tags: always
+    authorized_key:
+      user: simone
+      key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM8z8NzEAaG6FaRTeeYMKp6ThANIr4ollR6wcwEqeYPH Ansible"
+
+  - name: add sudoers file for user simone
+    tags: always
+    copy:
+      src: sudoer_simone
+      dest: /etc/sudoers.d/simone
+      owner: root
+      group: root
+      mode: 0440
+

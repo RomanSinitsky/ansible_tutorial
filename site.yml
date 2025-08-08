@@ -4,20 +4,39 @@
   become: true
   pre_tasks:
 
-  - name: install updates (RedHat)
+  - name: Update repo cache (RedHat)
     tags: always
     dnf:
-      update_only: yes
       update_cache: yes
+    changed_when: false
     when: ansible_facts['distribution'] == "RedHat"
 
-  - name: install updates (Ubuntu)
+  - name: Update repo cache (Ubuntu)
     tags: always
     apt:
-      upgrade: dist
       update_cache: yes
+    changed_when: false
     when: ansible_facts['distribution'] == "Ubuntu"
 
+
+- hosts: workstations
+  become: true
+  vars_files:
+    - vault.yml
+  tasks:
+
+  - name: install unzip
+    package: 
+      name: unzip
+
+  - name: install terraform
+    unarchive: 
+      src: https://releases.hashicorp.com/terraform/1.12.2/terraform_1.12.2_linux_amd64.zip
+      dest: /usr/local/bin
+      remote_src: yes
+      mode: 0755
+      owner: root
+      group: root
       
 - hosts: webservers
   become: true
@@ -53,6 +72,23 @@
       state: started
     when: ansible_facts['distribution'] == "Ubuntu"
 
+  - name: change Server Admin email on Ubuntu
+    tags: apache,apache2,ubuntu
+    lineinfile:
+      state: present
+      path: /etc/apache2/sites-available/000-default.conf
+      regexp: 'ServerAdmin'
+      line: ServerAdmin roman@romansite2.com
+    when: ansible_facts['distribution'] == "Ubuntu"
+    register: apache2  
+
+  - name: Restart apache2 Ubuntu
+    tags: apache,apache2,ubuntu
+    ansible.builtin.service:
+      name: apache2
+      state: restarted
+    when: apache2.changed
+     
   - name: install apache and php packages
     tags: apache,httpd,redhat  
     ansible.builtin.dnf:
@@ -87,6 +123,22 @@
       owner: root
       group: root
       mode: 0644
+
+  - name: change Server Admin email on RedHat
+    tags: apache,httpd,redhat
+    lineinfile:
+      path: /etc/httpd/conf/httpd.conf
+      regexp: '^ServerAdmin'
+      line: ServerAdmin roman@romansite.com
+    when: ansible_facts['distribution'] == "RedHat"
+    register: httpd  
+
+  - name: Restart httpd RedHat
+    tags: apache,httpd,redhat
+    ansible.builtin.service:
+      name: httpd 
+      state: restarted
+    when: httpd.changed
 
 - hosts: dbservers
   become: true
@@ -149,5 +201,3 @@
         - smbd
         - nmbd
       when: ansible_facts['distribution'] == "Ubuntu"
- 
-
