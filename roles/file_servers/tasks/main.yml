@@ -1,0 +1,30 @@
+- name: install samba package
+  tags: samba,redhat,ubuntu
+  package: 
+    name: 
+      - samba
+      - samba-client
+    state: latest
+
+- name: Enable and start Samba services for RedHat
+  tags: samba,redhat
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - smb
+    - nmb
+  when: ansible_facts['distribution'] == "RedHat"
+
+- name: Enable and start Samba services for Ubuntu
+  tags: samba,ubuntu
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - smbd
+    - nmbd
+  when: ansible_facts['distribution'] == "Ubuntu"
+

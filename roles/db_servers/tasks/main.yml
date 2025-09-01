@@ -1,0 +1,23 @@
+- name: install mariadb package (RedHat)
+  tags: db,mariadb,redhat
+  ansible.builtin.dnf:
+    name:
+      - mariadb
+      - mariadb-server
+    state: latest
+  when: ansible_facts['distribution'] == "RedHat"
+
+- name: install mariadb package (Ubuntu)
+  tags: db,mariadb,ubuntu
+  apt:
+    name: mariadb
+    state: latest
+  when: ansible_facts['distribution'] == "Ubuntu"
+
+- name: Enable and start MariaDB
+  tags: db,mariadb
+  ansible.builtin.service:
+    name: mariadb
+    state: started   # ensures it's running
+    enabled: yes     # ensures it starts at boot
+
