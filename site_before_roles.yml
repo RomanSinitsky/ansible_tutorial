@@ -1,0 +1,203 @@
+---
+
+- hosts: all
+  become: true
+  pre_tasks:
+
+  - name: Update repo cache (RedHat)
+    tags: always
+    dnf:
+      update_cache: yes
+    changed_when: false
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: Update repo cache (Ubuntu)
+    tags: always
+    apt:
+      update_cache: yes
+    changed_when: false
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+
+- hosts: workstations
+  become: true
+  vars_files:
+    - vault.yml
+  tasks:
+
+  - name: install unzip
+    package: 
+      name: unzip
+
+  - name: install terraform
+    unarchive: 
+      src: https://releases.hashicorp.com/terraform/1.12.2/terraform_1.12.2_linux_amd64.zip
+      dest: /usr/local/bin
+      remote_src: yes
+      mode: 0755
+      owner: root
+      group: root
+      
+- hosts: webservers
+  become: true
+  tasks:
+
+  - name: install apache and php packages
+    tags: apache,httpd,ubuntu  
+    apt:
+      name:
+        - apache2
+        - libapache2-mod-php
+      state: latest
+    when: ansible_facts['distribution'] == "Ubuntu"
+      
+  - name: Ensure UFW is enabled
+    tags: apache,httpd,ubuntu  
+    community.general.ufw:
+      state: enabled
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: Open HTTP service in ufw
+    tags: apache,httpd,ubuntu  
+    community.general.ufw:
+      rule: allow
+      name: "Apache Full"
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: Enable and start Apache service
+    tags: apache,httpd,ubuntu  
+    ansible.builtin.service:
+      name: apache2
+      enabled: yes
+      state: started
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: change Server Admin email on Ubuntu
+    tags: apache,apache2,ubuntu
+    lineinfile:
+      state: present
+      path: /etc/apache2/sites-available/000-default.conf
+      regexp: 'ServerAdmin'
+      line: ServerAdmin roman@romansite2.com
+    when: ansible_facts['distribution'] == "Ubuntu"
+    register: apache2  
+
+  - name: Restart apache2 Ubuntu
+    tags: apache,apache2,ubuntu
+    ansible.builtin.service:
+      name: apache2
+      state: restarted
+    when: apache2.changed
+     
+  - name: install apache and php packages
+    tags: apache,httpd,redhat  
+    ansible.builtin.dnf:
+      name:
+        - httpd
+        - php
+      state: latest
+    when: ansible_facts['distribution'] == "RedHat"
+      
+  - name: Enable and start Apache service
+    tags: apache,httpd,redhat  
+    ansible.builtin.service:
+      name: httpd
+      enabled: yes
+      state: started
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: Open HTTP service in firewalld
+    tags: apache,httpd,redhat  
+    ansible.posix.firewalld:
+      service: http
+      permanent: true
+      state: enabled
+      immediate: yes
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: copy default html file on apache server
+    tags: apache,apache2,httpd
+    copy:
+      src: default_site.html
+      dest: /var/www/html/index.html
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: change Server Admin email on RedHat
+    tags: apache,httpd,redhat
+    lineinfile:
+      path: /etc/httpd/conf/httpd.conf
+      regexp: '^ServerAdmin'
+      line: ServerAdmin roman@romansite.com
+    when: ansible_facts['distribution'] == "RedHat"
+    register: httpd  
+
+  - name: Restart httpd RedHat
+    tags: apache,httpd,redhat
+    ansible.builtin.service:
+      name: httpd 
+      state: restarted
+    when: httpd.changed
+
+- hosts: dbservers
+  become: true
+  tasks:
+
+  - name: install mariadb package (RedHat)
+    tags: db,mariadb,redhat
+    ansible.builtin.dnf:
+      name:
+        - mariadb
+        - mariadb-server
+      state: latest
+    when: ansible_facts['distribution'] == "RedHat"
+
+  - name: install mariadb package (Ubuntu)
+    tags: db,mariadb,ubuntu
+    apt:
+      name: mariadb
+      state: latest
+    when: ansible_facts['distribution'] == "Ubuntu"
+
+  - name: Enable and start MariaDB
+    tags: db,mariadb
+    ansible.builtin.service:
+      name: mariadb
+      state: started   # ensures it's running
+      enabled: yes     # ensures it starts at boot
+
+
+- hosts: fileservers
+  become: yes
+  tasks:
+
+    - name: install samba package
+      tags: samba,redhat,ubuntu
+      package: 
+        name: 
+          - samba
+          - samba-client
+        state: latest
+
+    - name: Enable and start Samba services for RedHat
+      tags: samba,redhat
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - smb
+        - nmb
+      when: ansible_facts['distribution'] == "RedHat"
+ 
+    - name: Enable and start Samba services for Ubuntu
+      tags: samba,ubuntu
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - smbd
+        - nmbd
+      when: ansible_facts['distribution'] == "Ubuntu"
