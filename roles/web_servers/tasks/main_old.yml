@@ -1,18 +1,12 @@
 - name: install apache and php packages
-  tags: apache
-  package:
+  tags: apache,httpd,ubuntu  
+  apt:
     name:
-      - "{{ apache_package_name }}"
-      - "{{ php_package_name }}"
+      - apache2
+      - libapache2-mod-php
     state: latest
-
-- name: Enable and start Apache service
-  tags: apache   
-  ansible.builtin.service:
-    name: "{{ apache_service }}"
-    enabled: yes
-    state: started
-   
+  when: ansible_facts['distribution'] == "Ubuntu"
+    
 - name: Ensure UFW is enabled
   tags: apache,httpd,ubuntu  
   community.general.ufw:
@@ -26,16 +20,48 @@
     name: "Apache Full"
   when: ansible_facts['distribution'] == "Ubuntu"
 
+- name: Enable and start Apache service
+  tags: apache,httpd,ubuntu  
+  ansible.builtin.service:
+    name: apache2
+    enabled: yes
+    state: started
+  when: ansible_facts['distribution'] == "Ubuntu"
+
 - name: change Server Admin email on Ubuntu
   tags: apache,apache2,ubuntu
   lineinfile:
     state: present
     path: /etc/apache2/sites-available/000-default.conf
     regexp: 'ServerAdmin'
-    line: "        ServerAdmin roman@romansite22345.com"
+    line: ServerAdmin roman@romansite2.com
   when: ansible_facts['distribution'] == "Ubuntu"
-  notify: restart_apache  
-  
+  register: apache2  
+
+- name: Restart apache2 Ubuntu
+  tags: apache,apache2,ubuntu
+  ansible.builtin.service:
+    name: apache2
+    state: restarted
+  when: apache2.changed
+   
+- name: install apache and php packages
+  tags: apache,httpd,redhat  
+  ansible.builtin.dnf:
+    name:
+      - httpd
+      - php
+    state: latest
+  when: ansible_facts['distribution'] == "RedHat"
+    
+- name: Enable and start Apache service
+  tags: apache,httpd,redhat  
+  ansible.builtin.service:
+    name: httpd
+    enabled: yes
+    state: started
+  when: ansible_facts['distribution'] == "RedHat"
+
 - name: Open HTTP service in firewalld
   tags: apache,httpd,redhat  
   ansible.posix.firewalld:
@@ -61,5 +87,12 @@
     regexp: '^ServerAdmin'
     line: ServerAdmin roman@romansite.com
   when: ansible_facts['distribution'] == "RedHat"
-  notify: restart_apache 
+  register: httpd  
+
+- name: Restart httpd RedHat
+  tags: apache,httpd,redhat
+  ansible.builtin.service:
+    name: httpd 
+    state: restarted
+  when: httpd.changed
 

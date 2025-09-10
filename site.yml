@@ -4,19 +4,11 @@
   become: true
   pre_tasks:
 
-  - name: Update repo cache (RedHat)
+  - name: Update repo
     tags: always
-    dnf:
+    package:
       update_cache: yes
     changed_when: false
-    when: ansible_facts['distribution'] == "RedHat"
-
-  - name: Update repo cache (Ubuntu)
-    tags: always
-    apt:
-      update_cache: yes
-    changed_when: false
-    when: ansible_facts['distribution'] == "Ubuntu"
 
 - hosts: all
   become: true
